@@ -8,7 +8,7 @@ const jsonParser = bodyParser.json();
 
 const expressSwagger = require('express-swagger-generator')(app);
 const {errorHandler} = require('./error-handler');
-const validator = require('./validator')
+const validator = require('./validator');
 
 
 let options = {
