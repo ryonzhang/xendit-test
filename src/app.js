@@ -85,7 +85,7 @@ module.exports = (db) => {
      * @returns {Array.<Response>} 200 - The rides with the same ID of the latest inserted ride
      * @returns {Error.model} 500 - The error message regarding sanitation,validation or DB operation
      */
-    app.post('/rides', jsonParser, (req, res) => {
+    app.post('/rides', jsonParser, (req, res, next) => {
         const startLatitude = Number(req.body.start_lat);
         const startLongitude = Number(req.body.start_long);
         const endLatitude = Number(req.body.end_lat);
@@ -111,21 +111,19 @@ module.exports = (db) => {
         }
 
         if (typeof driverVehicle !== 'string' || driverVehicle.length < 1) {
-            if (typeof driverName !== 'string' || driverName.length < 1) {
-                throw new RideError('VALIDATION_ERROR','Driver Vehicle must be a non empty string');
-            }
+            throw new RideError('VALIDATION_ERROR','Driver Vehicle must be a non empty string');
         }
 
         var values = [req.body.start_lat, req.body.start_long, req.body.end_lat, req.body.end_long, req.body.rider_name, req.body.driver_name, req.body.driver_vehicle];
 
         db.run('INSERT INTO Rides(startLat, startLong, endLat, endLong, riderName, driverName, driverVehicle) VALUES (?, ?, ?, ?, ?, ?, ?)', values, function (err) {
             if (err) {
-                throw new RideError('SERVER_ERROR','Unknown error');
+                return next(new RideError('SERVER_ERROR','Unknown error'));
             }
 
             db.all('SELECT * FROM Rides WHERE rideID = ?', this.lastID, function (err, rows) {
                 if (err) {
-                    throw new RideError('SERVER_ERROR','Unknown error');
+                    return next(new RideError('SERVER_ERROR','Unknown error',res));
                 }
 
                 res.send(rows);
@@ -141,14 +139,14 @@ module.exports = (db) => {
      * @returns {Array.<Response>} 200 - The rides with the same ID of the latest inserted ride
      * @returns {Error.model} 500 - The error message regarding sanitation,validation or DB operation
      */
-    app.get('/rides', (req, res) => {
+    app.get('/rides', (req, res, next) => {
         db.all('SELECT * FROM Rides', function (err, rows) {
             if (err) {
-                throw new RideError('SERVER_ERROR','Unknown error');
+                return next(new RideError('SERVER_ERROR','Unknown error',res));
             }
 
             if (rows.length === 0) {
-                throw new RideError('SERVER_ERROR','Unknown error');
+                return next(new RideError('SERVER_ERROR','Unknown error',res));
             }
 
             res.send(rows);
@@ -164,14 +162,14 @@ module.exports = (db) => {
      * @returns {Array.<Response>} 200 - The rides with the same ID of the latest inserted ride
      * @returns {Error.model} 500 - The error message regarding sanitation,validation or DB operation
      */
-    app.get('/rides/:id', (req, res) => {
+    app.get('/rides/:id', (req, res,next) => {
         db.all(`SELECT * FROM Rides WHERE rideID='${req.params.id}'`, function (err, rows) {
             if (err) {
-                throw new RideError('SERVER_ERROR','Unknown error');
+                return next(new RideError('SERVER_ERROR','Unknown error'));
             }
 
             if (rows.length === 0) {
-                throw new RideError('SERVER_ERROR','Unknown error');
+                return next(new RideError('RIDES_NOT_FOUND_ERROR','Could not find any rides'));
             }
 
             res.send(rows);
