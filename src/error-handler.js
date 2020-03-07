@@ -7,7 +7,7 @@ class RideError extends Error {
     }
 }
 
-const errorHandler = async (err, req, res)=>{
+const errorHandler = async (err, req, res, next)=>{
     logger.error(`ERROR ${err.error_code}:${err.message}`);
     res.status(500).send({
         error_code: err.error_code,
