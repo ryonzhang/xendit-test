@@ -7,7 +7,9 @@ const bodyParser = require('body-parser');
 const jsonParser = bodyParser.json();
 
 const expressSwagger = require('express-swagger-generator')(app);
-const {RideError,errorHandler} = require('./error-handler');
+const {errorHandler} = require('./error-handler');
+const validator = require('./validator');
+
 
 let options = {
     swaggerDefinition: {
@@ -34,6 +36,7 @@ expressSwagger(options);
 
 
 module.exports = (db) => {
+    const {all,query} = require('./db-decorator')(db);
 
     /**
      * Health Check endpoint
@@ -85,50 +88,11 @@ module.exports = (db) => {
      * @returns {Array.<Response>} 200 - The rides with the same ID of the latest inserted ride
      * @returns {Error.model} 500 - The error message regarding sanitation,validation or DB operation
      */
-    app.post('/rides', jsonParser, (req, res, next) => {
-        const startLatitude = Number(req.body.start_lat);
-        const startLongitude = Number(req.body.start_long);
-        const endLatitude = Number(req.body.end_lat);
-        const endLongitude = Number(req.body.end_long);
-        const riderName = req.body.rider_name;
-        const driverName = req.body.driver_name;
-        const driverVehicle = req.body.driver_vehicle;
-
-        if (startLatitude < -90 || startLatitude > 90 || startLongitude < -180 || startLongitude > 180) {
-            throw new RideError('VALIDATION_ERROR','Start latitude and longitude must be between -90 - 90 and -180 to 180 degrees respectively');
-        }
-
-        if (endLatitude < -90 || endLatitude > 90 || endLongitude < -180 || endLongitude > 180) {
-            throw new RideError('VALIDATION_ERROR','End latitude and longitude must be between -90 - 90 and -180 to 180 degrees respectively');
-        }
-
-        if (typeof riderName !== 'string' || riderName.length < 1) {
-            throw new RideError('VALIDATION_ERROR','Rider name must be a non empty string');
-        }
-
-        if (typeof driverName !== 'string' || driverName.length < 1) {
-            throw new RideError('VALIDATION_ERROR','Driver name must be a non empty string');
-        }
-
-        if (typeof driverVehicle !== 'string' || driverVehicle.length < 1) {
-            throw new RideError('VALIDATION_ERROR','Driver Vehicle must be a non empty string');
-        }
-
-        var values = [req.body.start_lat, req.body.start_long, req.body.end_lat, req.body.end_long, req.body.rider_name, req.body.driver_name, req.body.driver_vehicle];
-
-        db.run('INSERT INTO Rides(startLat, startLong, endLat, endLong, riderName, driverName, driverVehicle) VALUES (?, ?, ?, ?, ?, ?, ?)', values, function (err) {
-            if (err) {
-                return next(new RideError('SERVER_ERROR','Unknown error'));
-            }
-
-            db.all('SELECT * FROM Rides WHERE rideID = ?', this.lastID, function (err, rows) {
-                if (err) {
-                    return next(new RideError('SERVER_ERROR','Unknown error',res));
-                }
-
-                res.send(rows);
-            });
-        });
+    app.post('/rides', jsonParser, async(req, res, next) => {
+        const values = await validator.validateRide(req.body,next);
+        const lastID = await query('INSERT INTO Rides(startLat, startLong, endLat, endLong, riderName, driverName, driverVehicle) VALUES (?, ?, ?, ?, ?, ?, ?)', values,next);
+        const rows = await all('SELECT * FROM Rides WHERE rideID = ?', [lastID],next);
+        res.send(rows);
     });
 
     /**
@@ -141,21 +105,12 @@ module.exports = (db) => {
      * @returns {Array.<Response>} 200 - The rides with the same ID of the latest inserted ride
      * @returns {Error.model} 500 - The error message regarding sanitation,validation or DB operation
      */
-    app.get('/rides', (req, res, next) => {
+    app.get('/rides', async(req, res, next) => {
         const page = req.query.page && Number(req.query.page)>=1? Number(req.query.page): 1;
         const limit = req.query.limit ? Number(req.query.limit) : 5;
         const offset = (page-1)*limit;
-        db.all(`SELECT * FROM Rides LIMIT ${limit} OFFSET ${offset}`, function (err, rows) {
-            if (err) {
-                return next(new RideError('SERVER_ERROR','Unknown error',res));
-            }
-
-            if (rows.length === 0) {
-                return next(new RideError('SERVER_ERROR','Unknown error',res));
-            }
-
-            res.send(rows);
-        });
+        const rows = await all('SELECT * FROM Rides LIMIT ? OFFSET ?', [limit, offset],next);
+        res.send(rows);
     });
 
     /**
@@ -167,18 +122,9 @@ module.exports = (db) => {
      * @returns {Array.<Response>} 200 - The rides with the same ID of the latest inserted ride
      * @returns {Error.model} 500 - The error message regarding sanitation,validation or DB operation
      */
-    app.get('/rides/:id', (req, res,next) => {
-        db.all(`SELECT * FROM Rides WHERE rideID='${req.params.id}'`, function (err, rows) {
-            if (err) {
-                return next(new RideError('SERVER_ERROR','Unknown error'));
-            }
-
-            if (rows.length === 0) {
-                return next(new RideError('RIDES_NOT_FOUND_ERROR','Could not find any rides'));
-            }
-
-            res.send(rows);
-        });
+    app.get('/rides/:id', async(req, res,next) => {
+        const rows = await all('SELECT * FROM Rides WHERE rideID=?', [req.params.id],next);
+        res.send(rows);
     });
 
     app.use(errorHandler);
