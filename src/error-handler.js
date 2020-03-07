@@ -7,6 +7,7 @@ class RideError extends Error {
     }
 }
 
+// eslint-disable-next-line no-unused-vars
 const errorHandler = async (err, req, res, next)=>{
     logger.error(`ERROR ${err.error_code}:${err.message}`);
     res.status(500).send({
