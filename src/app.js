@@ -133,14 +133,19 @@ module.exports = (db) => {
 
     /**
      * Get all rides
-     * This endpoint is for obtaining all records of rides
+     * This endpoint is for obtaining all records of rides by pagination, for instance, if to retrieve records from 21-30, you can set limit to 10 (limit=10, default 5) and take the third page (page=3, default 1)
      * @route GET /rides
+     * @param {number} page.query - the page of ride records
+     * @param {number} limit.query - the number of records on one page
      * @produces application/json
      * @returns {Array.<Response>} 200 - The rides with the same ID of the latest inserted ride
      * @returns {Error.model} 500 - The error message regarding sanitation,validation or DB operation
      */
     app.get('/rides', (req, res, next) => {
-        db.all('SELECT * FROM Rides', function (err, rows) {
+        const page = req.query.page && Number(req.query.page)>=1? Number(req.query.page): 1;
+        const limit = req.query.limit ? Number(req.query.limit) : 5;
+        const offset = (page-1)*limit;
+        db.all(`SELECT * FROM Rides LIMIT ${limit} OFFSET ${offset}`, function (err, rows) {
             if (err) {
                 return next(new RideError('SERVER_ERROR','Unknown error',res));
             }

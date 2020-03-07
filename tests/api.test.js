@@ -129,14 +129,37 @@ describe('API tests', () => {
         });
     });
 
-    describe('GET /rides', () => {
-        it('should return ride records', (done) => {
+    describe('GET /rides with pagination', () => {
+        it('should return ride records with default limit', (done) => {
             request(app)
                 .get('/rides')
                 .expect(200)
                 .end(function(err, res) {
                     if (err) return done(err);
-                    assert.equal(res.body.length, 11);
+                    assert.equal(res.body.length, 5);
+                    done();
+                });
+        });
+
+        it('should return ride records with limit 10', (done) => {
+            request(app)
+                .get('/rides?limit=10')
+                .expect(200)
+                .end(function(err, res) {
+                    if (err) return done(err);
+                    assert.equal(res.body.length, 10);
+                    done();
+                });
+        });
+
+        it('should return ride records with limit 3 page 3', (done) => {
+            request(app)
+                .get('/rides?limit=3&page=3')
+                .expect(200)
+                .end(function(err, res) {
+                    if (err) return done(err);
+                    assert.equal(res.body.length, 3);
+                    assert.equal(res.body[0].rideID, 7);
                     done();
                 });
         });
