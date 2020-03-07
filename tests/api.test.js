@@ -181,4 +181,35 @@ describe('API tests', () => {
                 }, done);
         });
     });
+
+
+    describe('SQL injection', () => {
+        it('should stop injection for POST /rides', (done) => {
+            request(app)
+                .post('/rides')
+                .send({
+                    start_lat: 1,
+                    start_long: 2,
+                    end_lat: 3,
+                    end_long: 4,
+                    rider_name: 'Dickens',
+                    driver_name: 'Donald',
+                    driver_vehicle: 'Subaru\'); DELETE FROM Rides',
+                })
+                .expect('Content-Type', /json/)
+                .expect(200,done);
+        });
+
+        it('should stop injection for GET /rides', (done) => {
+            request(app)
+                .get('/rides?page=3&limit=3; DELETE FROM Rides;')
+                .expect(500,done);
+        });
+
+        it('should prevent injection in GET /rides/{ID}', (done) => {
+            request(app)
+                .get('/rides/1\' OR 1=1;')
+                .expect(500,done);
+        });
+    });
 });
